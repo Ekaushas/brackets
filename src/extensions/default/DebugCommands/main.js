@@ -69,7 +69,6 @@ define(function (require, exports, module) {
         DEBUG_LOG_NODE_STATE            = "debug.logNodeState",
         DEBUG_RESTART_NODE              = "debug.restartNode",
         DEBUG_SHOW_ERRORS_IN_STATUS_BAR = "debug.showErrorsInStatusBar",
-        DEBUG_TOGGLE_LIVEDEV_MB_MODE    = "debug.toggleLiveDevMultiBrowser",
         DEBUG_OPEN_BRACKETS_SOURCE      = "debug.openBracketsSource";
 
     PreferencesManager.definePreference(DEBUG_SHOW_ERRORS_IN_STATUS_BAR, "boolean", false);
@@ -315,7 +314,6 @@ define(function (require, exports, module) {
     menu.addMenuItem(DEBUG_LOG_NODE_STATE);
     menu.addMenuItem(DEBUG_RESTART_NODE);
     menu.addMenuItem(DEBUG_SHOW_ERRORS_IN_STATUS_BAR);
-    menu.addMenuItem(DEBUG_TOGGLE_LIVEDEV_MB_MODE);
     menu.addMenuItem(Commands.FILE_OPEN_PREFERENCES); // this command is defined in core, but exposed only in Debug menu for now
     menu.addMenuItem(Commands.FILE_OPEN_KEYMAP);      // this command is defined in core, but exposed only in Debug menu for now
     
