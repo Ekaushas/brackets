@@ -72,8 +72,6 @@ define(function (require, exports, module) {
         DEBUG_TOGGLE_LIVEDEV_MB_MODE    = "debug.toggleLiveDevMultiBrowser",
         DEBUG_OPEN_BRACKETS_SOURCE      = "debug.openBracketsSource";
 
-    var PREF_LIVEDEV_MULTIBROWSER = "livedev.multibrowser";
-
     PreferencesManager.definePreference(DEBUG_SHOW_ERRORS_IN_STATUS_BAR, "boolean", false);
     
     function handleShowDeveloperTools() {
@@ -258,12 +256,6 @@ define(function (require, exports, module) {
         CommandManager.get(DEBUG_SHOW_ERRORS_IN_STATUS_BAR).setChecked(val);
     }
 
-    function toggleLiveDevMultiBrowser(bool) {
-        var val = togglePref(PREF_LIVEDEV_MULTIBROWSER, bool);
-
-        CommandManager.get(DEBUG_TOGGLE_LIVEDEV_MB_MODE).setChecked(val);
-    }
-
     function handleOpenBracketsSource() {
         // Brackets source dir w/o the trailing src/ folder
         var dir = FileUtils.getNativeBracketsDirectoryPath().replace(/\/[^\/]+$/, "/");
@@ -291,7 +283,6 @@ define(function (require, exports, module) {
 
     CommandManager.register(Strings.CMD_SWITCH_LANGUAGE,           DEBUG_SWITCH_LANGUAGE,           handleSwitchLanguage);
     CommandManager.register(Strings.CMD_SHOW_ERRORS_IN_STATUS_BAR, DEBUG_SHOW_ERRORS_IN_STATUS_BAR, toggleErrorNotification);
-    CommandManager.register(Strings.CMD_TOGGLE_LIVEDEV_MB_MODE,    DEBUG_TOGGLE_LIVEDEV_MB_MODE,    toggleLiveDevMultiBrowser);
     
     // Node-related Commands
     CommandManager.register(Strings.CMD_ENABLE_NODE_DEBUGGER, DEBUG_ENABLE_NODE_DEBUGGER,   NodeDebugUtils.enableDebugger);
@@ -300,13 +291,9 @@ define(function (require, exports, module) {
     
     enableRunTestsMenuItem();
     toggleErrorNotification(PreferencesManager.get(DEBUG_SHOW_ERRORS_IN_STATUS_BAR));
-    toggleLiveDevMultiBrowser(PreferencesManager.get(PREF_LIVEDEV_MULTIBROWSER));
 
     PreferencesManager.on("change", DEBUG_SHOW_ERRORS_IN_STATUS_BAR, function () {
         toggleErrorNotification(PreferencesManager.get(DEBUG_SHOW_ERRORS_IN_STATUS_BAR));
-    });
-    PreferencesManager.on("change", PREF_LIVEDEV_MULTIBROWSER, function () {
-        toggleLiveDevMultiBrowser(PreferencesManager.get(PREF_LIVEDEV_MULTIBROWSER));
     });
     
     /*

@@ -40,6 +40,7 @@ define(function main(require, exports, module) {
         Commands            = require("command/Commands"),
         AppInit             = require("utils/AppInit"),
         LiveDevelopment     = require("LiveDevelopment/LiveDevelopment"),
+        MultiBrowserLiveDev = require("LiveDevelopment/LiveDevMultiBrowser"),
         Inspector           = require("LiveDevelopment/Inspector/Inspector"),
         CommandManager      = require("command/CommandManager"),
         PreferencesManager  = require("preferences/PreferencesManager"),
@@ -50,9 +51,6 @@ define(function main(require, exports, module) {
         ExtensionUtils      = require("utils/ExtensionUtils"),
         StringUtils         = require("utils/StringUtils");
     
-    // expermiental multi-browser implementation
-    var MultiBrowserLiveDev = require("LiveDevelopment/LiveDevMultiBrowser");
-
     var params = new UrlParams();
     var config = {
         experimental: false, // enable experimental features
@@ -77,9 +75,39 @@ define(function main(require, exports, module) {
     var LiveDevImpl;
     
     // "livedev.multibrowser" preference
-    var PREF_MULTIBROWSER = "livedev.multibrowser";
-    var multiBrowserPref = PreferencesManager.definePreference(PREF_MULTIBROWSER, "boolean", false);
+    var PREF_MULTIBROWSER = "multibrowser";
+    var prefs = PreferencesManager.getExtensionPrefs("livedev");
+    var multiBrowserPref = prefs.definePreference(PREF_MULTIBROWSER, "boolean", false);
 
+    /** Toggles or sets the preference **/
+    function _togglePref(key, value) {
+        var val,
+            oldPref = !!prefs.get(key);
+
+        if (value === undefined) {
+            val = !oldPref;
+        } else {
+            val = !!value;
+        }
+
+        // update menu
+        if (val !== oldPref) {
+            prefs.set(key, val);
+        }
+
+        return val;
+    }
+    
+    /* Toggles or sets the "livedev.multibrowser" preference */
+    function _toggleLivePreviewMultiBrowser(value) {
+        var val = _togglePref(PREF_MULTIBROWSER, value);
+        
+        CommandManager.get(Commands.TOGGLE_LIVE_PREVIEW_MB_MODE).setChecked(val);
+        // Issue #10217: multi-browser does not support user server, so disable
+        // the setting if it is enabled.
+        CommandManager.get(Commands.FILE_PROJECT_SETTINGS).setEnabled(!val);
+    }
+    
     /** Load Live Development LESS Style */
     function _loadStyles() {
         var lessText    = require("text!LiveDevelopment/main.less"),
@@ -219,10 +247,11 @@ define(function main(require, exports, module) {
         PreferencesManager.setViewState("livedev.highlight", config.highlight);
     }
     
-    // sets the MultiBrowserLiveDev implementation if multibrowser = true,
-    // keeps default LiveDevelopment implementation based on CDT in other case.
-    // since UI status are slightly different btw implementations, it also set 
-    // the corresponding style values.
+    /**
+     * Sets the MultiBrowserLiveDev implementation if multibrowser is truthy,
+     * keeps default LiveDevelopment implementation based on CDT otherwise.
+     * It also resets the listeners and UI elements.
+     */
     function _setImplementation(multibrowser) {
         if (multibrowser) {
             // set implemenation
@@ -250,6 +279,11 @@ define(function main(require, exports, module) {
                 { tooltip: Strings.LIVE_DEV_STATUS_TIP_SYNC_ERROR, style: "sync-error" }
             ];
         }
+        // setup status changes listeners for new implementation
+        _setupGoLiveButton();
+        _setupGoLiveMenu();
+        // toggle the menu
+        _toggleLivePreviewMultiBrowser(multibrowser);
     }
     
     /** Setup window references to useful LiveDevelopment modules */
@@ -265,7 +299,7 @@ define(function main(require, exports, module) {
             LiveDevelopment.reload();
         }
     }
-
+    
     /** Initialize LiveDevelopment */
     AppInit.appReady(function () {
         params.parse();
@@ -279,13 +313,10 @@ define(function main(require, exports, module) {
         // by changing the preference value.
         MultiBrowserLiveDev.init(config);
 
-        _setImplementation(PreferencesManager.get(PREF_MULTIBROWSER));
-        
         _loadStyles();
-        _setupGoLiveButton();
-        _setupGoLiveMenu();
-
         _updateHighlightCheckmark();
+        
+        _setImplementation(prefs.get(PREF_MULTIBROWSER));
         
         if (config.debug) {
             _setupDebugHelpers();
@@ -308,18 +339,20 @@ define(function main(require, exports, module) {
         
         multiBrowserPref
             .on("change", function () {
-                // stop the current session if it is open and set implementation based on 
-                // the pref value. It could be automaticallty restarted but, since the preference file,
-                // is the document open in the editor, it will no launch a live document.
+                // Stop the current session if it is open and set implementation based on 
+                // the pref value. We could start the new implementation immediately, but
+                // since the current document is potentially a user preferences file, Live
+                // Preview will not locate the html file to serve.
                 if (LiveDevImpl && LiveDevImpl.status >= LiveDevImpl.STATUS_ACTIVE) {
-                    LiveDevImpl.close();
-                    // status changes will now be listen from the new implementation
-                    LiveDevImpl.off("statusChange");
+                    LiveDevImpl.close()
+                        .done(function () {
+                            // status changes will now be listened by the new implementation
+                            LiveDevImpl.off("statusChange");
+                            _setImplementation(prefs.get(PREF_MULTIBROWSER));
+                        });
+                } else {
+                    _setImplementation(prefs.get(PREF_MULTIBROWSER));
                 }
-                _setImplementation(PreferencesManager.get(PREF_MULTIBROWSER));
-                // setup status changes listeners for new implementation
-                _setupGoLiveButton();
-                _setupGoLiveMenu();
             });
 
     });
@@ -342,6 +375,8 @@ define(function main(require, exports, module) {
     CommandManager.register(Strings.CMD_LIVE_FILE_PREVIEW,  Commands.FILE_LIVE_FILE_PREVIEW, _handleGoLiveCommand);
     CommandManager.register(Strings.CMD_LIVE_HIGHLIGHT, Commands.FILE_LIVE_HIGHLIGHT, _handlePreviewHighlightCommand);
     CommandManager.register(Strings.CMD_RELOAD_LIVE_PREVIEW, Commands.CMD_RELOAD_LIVE_PREVIEW, _handleReloadLivePreviewCommand);
+    CommandManager.register(Strings.CMD_TOGGLE_LIVE_PREVIEW_MB_MODE, Commands.TOGGLE_LIVE_PREVIEW_MB_MODE, _toggleLivePreviewMultiBrowser);
+    
     CommandManager.get(Commands.FILE_LIVE_HIGHLIGHT).setEnabled(false);
 
     // Export public functions
